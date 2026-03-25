@@ -2,7 +2,9 @@ import { useState } from "react";
 import { PanelTabs, type TabId } from "./components/panel-tabs";
 import { useMetrics } from "./hooks/use-metrics";
 import { CpuView } from "./views/cpu-view";
+import { DiskView } from "./views/disk-view";
 import { MemoryView } from "./views/memory-view";
+import { NetworkView } from "./views/network-view";
 import { ProcessView } from "./views/process-view";
 
 function App() {
@@ -18,6 +20,12 @@ function App() {
 				</div>
 				<div className={activeTab === "memory" ? "block" : "hidden"}>
 					<MemoryView current={current} history={history} />
+				</div>
+				<div className={activeTab === "disk" ? "block" : "hidden"}>
+					<DiskView current={current} history={history} />
+				</div>
+				<div className={activeTab === "network" ? "block" : "hidden"}>
+					<NetworkView current={current} history={history} />
 				</div>
 				<div className={activeTab === "process" ? "block" : "hidden"}>
 					<ProcessView current={current} />

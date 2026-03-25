@@ -7,3 +7,7 @@ export function formatBytes(bytes: number): string {
 export function formatPercent(value: number): string {
 	return `${value.toFixed(1)}%`;
 }
+
+export function formatBytesPerSec(bytes: number): string {
+	return `${formatBytes(bytes)}/s`;
+}

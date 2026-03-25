@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { HistorySection } from "../components/history-section";
 import { MetricBar } from "../components/metric-bar";
 import { SparklineChart } from "../components/sparkline-chart";
 import { formatBytes, formatPercent } from "../lib/format";
@@ -108,6 +109,9 @@ export function MemoryView({ current, history }: MemoryViewProps) {
 					</p>
 				</div>
 			</div>
+
+			{/* 24h History */}
+			<HistorySection metricType="memory" />
 		</div>
 	);
 }

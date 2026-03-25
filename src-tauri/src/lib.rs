@@ -1,4 +1,5 @@
 mod commands;
+mod db;
 mod metrics;
 
 use tauri::{
@@ -36,11 +37,18 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            metrics::collector::start_polling(app.handle().clone());
+            // Initialize SQLite and manage the pool
+            let pool = db::init(app.handle());
+            app.manage(pool.clone());
+
+            metrics::collector::start_polling(app.handle().clone(), pool);
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![commands::processes::kill_process])
+        .invoke_handler(tauri::generate_handler![
+            commands::processes::kill_process,
+            commands::history::get_history,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

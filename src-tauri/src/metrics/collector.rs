@@ -1,15 +1,19 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use chrono::Timelike;
 use sysinfo::{Disks, Networks, ProcessesToUpdate, System};
 use tauri::{AppHandle, Emitter};
 
+use super::disk_io;
 use super::m_series::{self, CoreTopology};
 use super::types::*;
+use crate::db::writer::AggregateBuffer;
+use crate::db::DbPool;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
 
-pub fn start_polling(app: AppHandle) {
+pub fn start_polling(app: AppHandle, pool: DbPool) {
     tauri::async_runtime::spawn(async move {
         let mut sys = System::new();
         let mut networks = Networks::new_with_refreshed_list();
@@ -40,14 +44,13 @@ pub fn start_polling(app: AppHandle) {
             );
         }
 
-        // Initialize disk baselines
-        let mut prev_disk: HashMap<String, (u64, u64)> = HashMap::new();
-        // Note: disk I/O tracking needs process-level stats or iostat.
-        // sysinfo Disks only provides capacity info, not throughput.
-        // We'll report 0 for read/write throughput in Phase 0 and add
-        // proper I/O tracking in Phase 2.
+        // Initialize disk I/O baselines from IOKit
+        let mut prev_disk: HashMap<String, (u64, u64)> = disk_io::read_disk_io_stats();
 
         let mut prev_time = Instant::now();
+
+        // Aggregate buffer for SQLite history
+        let mut buffer = AggregateBuffer::new();
 
         // Skip the very first emission (no delta baseline)
         let mut warmup_done = false;
@@ -69,6 +72,9 @@ pub fn start_polling(app: AppHandle) {
             let now = Instant::now();
             let elapsed_secs = now.duration_since(prev_time).as_secs_f64();
 
+            // Read current disk I/O from IOKit
+            let current_disk_io = disk_io::read_disk_io_stats();
+
             let snapshot = build_snapshot(
                 &sys,
                 &networks,
@@ -76,6 +82,7 @@ pub fn start_polling(app: AppHandle) {
                 &topology,
                 &mut prev_net,
                 &mut prev_disk,
+                &current_disk_io,
                 elapsed_secs,
             );
 
@@ -83,19 +90,31 @@ pub fn start_polling(app: AppHandle) {
                 eprintln!("[pulse-orbit] Failed to emit metric-snapshot: {e}");
             }
 
+            // Record to aggregate buffer and flush on 5-minute boundary
+            buffer.record(&snapshot);
+            let now_min = chrono::Local::now().minute();
+            if now_min.is_multiple_of(5) && now_min != buffer.last_flush_minute {
+                buffer.flush(&pool);
+                buffer.last_flush_minute = now_min;
+            }
+
+            // Update previous disk I/O for next delta
+            prev_disk = current_disk_io;
             prev_time = now;
             std::thread::sleep(POLL_INTERVAL);
         }
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_snapshot(
     sys: &System,
     networks: &Networks,
     disks: &Disks,
     topology: &Option<CoreTopology>,
     prev_net: &mut HashMap<String, (u64, u64)>,
-    _prev_disk: &mut HashMap<String, (u64, u64)>,
+    prev_disk: &mut HashMap<String, (u64, u64)>,
+    current_disk_io: &HashMap<String, (u64, u64)>,
     elapsed_secs: f64,
 ) -> MetricSnapshot {
     let timestamp = SystemTime::now()
@@ -105,7 +124,7 @@ fn build_snapshot(
 
     let cpu = build_cpu_metrics(sys, topology);
     let memory = build_memory_metrics(sys);
-    let disk = build_disk_metrics(disks);
+    let disk = build_disk_metrics(disks, prev_disk, current_disk_io, elapsed_secs);
     let network = build_network_metrics(networks, prev_net, elapsed_secs);
     let processes = build_process_list(sys);
 
@@ -190,7 +209,7 @@ fn build_memory_metrics(sys: &System) -> MemoryMetrics {
         Some(1) => MemoryPressure::Normal,
         Some(2) => MemoryPressure::Warn,
         Some(4) => MemoryPressure::Critical,
-        _ => MemoryPressure::Normal, // default to normal if unavailable
+        _ => MemoryPressure::Normal,
     };
 
     MemoryMetrics {
@@ -202,15 +221,46 @@ fn build_memory_metrics(sys: &System) -> MemoryMetrics {
     }
 }
 
-fn build_disk_metrics(disks: &Disks) -> DiskMetrics {
+fn build_disk_metrics(
+    disks: &Disks,
+    prev_disk: &HashMap<String, (u64, u64)>,
+    current_disk_io: &HashMap<String, (u64, u64)>,
+    elapsed_secs: f64,
+) -> DiskMetrics {
+    // Build a map of throughput rates from IOKit delta
+    let mut throughput: HashMap<&str, (u64, u64)> = HashMap::new();
+    for (name, &(cur_read, cur_write)) in current_disk_io {
+        if let Some(&(prev_read, prev_write)) = prev_disk.get(name.as_str()) {
+            let read_delta = cur_read.saturating_sub(prev_read);
+            let write_delta = cur_write.saturating_sub(prev_write);
+            throughput.insert(
+                name.as_str(),
+                (
+                    (read_delta as f64 / elapsed_secs) as u64,
+                    (write_delta as f64 / elapsed_secs) as u64,
+                ),
+            );
+        }
+    }
+
     let devices: Vec<DiskDevice> = disks
         .iter()
-        .map(|d| DiskDevice {
-            name: d.name().to_string_lossy().into_owned(),
-            read_bytes_per_sec: 0,  // Phase 0: no I/O throughput tracking yet
-            write_bytes_per_sec: 0, // Phase 0: no I/O throughput tracking yet
-            total_bytes: d.total_space(),
-            used_bytes: d.total_space() - d.available_space(),
+        .map(|d| {
+            let name = d.name().to_string_lossy().into_owned();
+            // Try to find IOKit throughput matching this disk's name
+            let (read_rate, write_rate) = throughput
+                .iter()
+                .find(|(io_name, _)| name.contains(*io_name) || io_name.contains(name.as_str()))
+                .map(|(_, rates)| *rates)
+                .unwrap_or((0, 0));
+
+            DiskDevice {
+                name,
+                read_bytes_per_sec: read_rate,
+                write_bytes_per_sec: write_rate,
+                total_bytes: d.total_space(),
+                used_bytes: d.total_space() - d.available_space(),
+            }
         })
         .collect();
 
@@ -264,8 +314,11 @@ fn build_process_list(sys: &System) -> Vec<ProcessInfo> {
         })
         .collect();
 
-    // Sort by CPU% descending, take top 10
-    procs.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
+    procs.sort_by(|a, b| {
+        b.cpu_percent
+            .partial_cmp(&a.cpu_percent)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     procs.truncate(10);
     procs
 }

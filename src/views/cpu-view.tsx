@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { HistorySection } from "../components/history-section";
 import { MetricBar } from "../components/metric-bar";
 import { SparklineChart } from "../components/sparkline-chart";
 import { formatPercent } from "../lib/format";
@@ -100,6 +101,9 @@ export function CpuView({ current, history }: CpuViewProps) {
 					Frequency: <span className="font-mono">{cpu.frequency_mhz} MHz</span>
 				</p>
 			)}
+
+			{/* 24h History */}
+			<HistorySection metricType="cpu" />
 		</div>
 	);
 }
