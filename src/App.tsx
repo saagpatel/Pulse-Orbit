@@ -6,6 +6,7 @@ import { DiskView } from "./views/disk-view";
 import { MemoryView } from "./views/memory-view";
 import { NetworkView } from "./views/network-view";
 import { ProcessView } from "./views/process-view";
+import { SettingsView } from "./views/settings-view";
 
 function App() {
 	const { current, history } = useMetrics();
@@ -29,6 +30,9 @@ function App() {
 				</div>
 				<div className={activeTab === "process" ? "block" : "hidden"}>
 					<ProcessView current={current} />
+				</div>
+				<div className={activeTab === "settings" ? "block" : "hidden"}>
+					<SettingsView />
 				</div>
 			</div>
 		</div>

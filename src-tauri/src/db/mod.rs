@@ -22,6 +22,18 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_type_time ON metric_snapshots(metric_ty
 CREATE INDEX IF NOT EXISTS idx_snapshots_window    ON metric_snapshots(window_start DESC);
 ";
 
+const MIGRATION_002: &str = "
+CREATE TABLE IF NOT EXISTS alert_thresholds (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    metric_type TEXT    NOT NULL UNIQUE,
+    threshold   REAL    NOT NULL,
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    cooldown_seconds INTEGER NOT NULL DEFAULT 300,
+    last_fired_at DATETIME,
+    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+";
+
 /// Initialize the SQLite connection pool and run migrations.
 pub fn init(app: &AppHandle) -> DbPool {
     let app_data_dir = app
@@ -46,7 +58,9 @@ pub fn init(app: &AppHandle) -> DbPool {
         conn.execute_batch("PRAGMA journal_mode=WAL;")
             .expect("failed to set WAL mode");
         conn.execute_batch(MIGRATION_001)
-            .expect("failed to run migrations");
+            .expect("failed to run migration 001");
+        conn.execute_batch(MIGRATION_002)
+            .expect("failed to run migration 002");
     }
 
     // Initial purge of stale rows

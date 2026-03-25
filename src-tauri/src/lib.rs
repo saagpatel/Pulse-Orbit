@@ -1,6 +1,7 @@
 mod commands;
 mod db;
 mod metrics;
+mod notifications;
 
 use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -10,6 +11,7 @@ use tauri::{
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(ActivationPolicy::Accessory);
@@ -48,6 +50,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::processes::kill_process,
             commands::history::get_history,
+            commands::thresholds::get_thresholds,
+            commands::thresholds::set_threshold,
+            commands::thresholds::get_db_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

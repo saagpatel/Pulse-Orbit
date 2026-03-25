@@ -8,6 +8,7 @@ use tauri::{AppHandle, Emitter};
 use super::disk_io;
 use super::m_series::{self, CoreTopology};
 use super::types::*;
+use super::threshold_checker::ThresholdChecker;
 use crate::db::writer::AggregateBuffer;
 use crate::db::DbPool;
 
@@ -52,6 +53,9 @@ pub fn start_polling(app: AppHandle, pool: DbPool) {
         // Aggregate buffer for SQLite history
         let mut buffer = AggregateBuffer::new();
 
+        // Threshold checker for alerts
+        let mut checker = ThresholdChecker::new(&pool);
+
         // Skip the very first emission (no delta baseline)
         let mut warmup_done = false;
 
@@ -89,6 +93,9 @@ pub fn start_polling(app: AppHandle, pool: DbPool) {
             if let Err(e) = app.emit("metric-snapshot", &snapshot) {
                 eprintln!("[pulse-orbit] Failed to emit metric-snapshot: {e}");
             }
+
+            // Check thresholds and fire notifications
+            checker.check(&snapshot, &app, &pool);
 
             // Record to aggregate buffer and flush on 5-minute boundary
             buffer.record(&snapshot);
