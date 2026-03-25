@@ -1,0 +1,10 @@
+node_modules/
+dist/
+target/
+app-icon.png
+
+# Tauri generated
+src-tauri/gen/
+
+*.log
+.DS_Store
