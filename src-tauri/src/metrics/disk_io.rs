@@ -111,22 +111,22 @@ unsafe fn get_cf_number(dict: &CFDictionary, key: &CFString) -> Option<u64> {
     cf_num.to_i64().map(|v| v as u64)
 }
 
-// IOKit FFI declarations
+// IOKit FFI declarations — public so gpu.rs can reuse them
 extern "C" {
-    fn IOServiceMatching(name: *const libc::c_char) -> *mut libc::c_void;
-    fn IOServiceGetMatchingServices(
+    pub fn IOServiceMatching(name: *const libc::c_char) -> *mut libc::c_void;
+    pub fn IOServiceGetMatchingServices(
         mainPort: u32,
         matching: *mut libc::c_void,
         existing: *mut u32,
     ) -> i32;
-    fn IOIteratorNext(iterator: u32) -> u32;
-    fn IOObjectRelease(object: u32) -> i32;
-    fn IORegistryEntryGetParentEntry(
+    pub fn IOIteratorNext(iterator: u32) -> u32;
+    pub fn IOObjectRelease(object: u32) -> i32;
+    pub fn IORegistryEntryGetParentEntry(
         entry: u32,
         plane: *const libc::c_char,
         parent: *mut u32,
     ) -> i32;
-    fn IORegistryEntryCreateCFProperty(
+    pub fn IORegistryEntryCreateCFProperty(
         entry: u32,
         key: *const libc::c_void,
         allocator: *const libc::c_void,

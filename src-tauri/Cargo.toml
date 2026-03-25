@@ -26,6 +26,7 @@ chrono = { version = "0.4", features = ["serde"] }
 core-foundation = "0.10"
 core-foundation-sys = "0.8"
 tauri-plugin-notification = "2"
+tauri-plugin-autostart = "2"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

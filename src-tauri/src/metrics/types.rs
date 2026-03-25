@@ -9,6 +9,12 @@ pub struct MetricSnapshot {
     pub disk: DiskMetrics,
     pub network: NetworkMetrics,
     pub processes: Vec<ProcessInfo>,
+    pub gpu: Option<GpuMetrics>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct GpuMetrics {
+    pub utilization_percent: f32,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -94,4 +100,6 @@ pub struct ProcessInfo {
     pub cpu_percent: f32,
     pub memory_bytes: u64,
     pub status: String,
+    pub network_rx_bytes_per_sec: u64,
+    pub network_tx_bytes_per_sec: u64,
 }

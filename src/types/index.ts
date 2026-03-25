@@ -6,6 +6,11 @@ export interface MetricSnapshot {
 	disk: DiskMetrics;
 	network: NetworkMetrics;
 	processes: ProcessInfo[];
+	gpu: GpuMetrics | null;
+}
+
+export interface GpuMetrics {
+	utilization_percent: number;
 }
 
 export interface CpuMetrics {
@@ -66,6 +71,8 @@ export interface ProcessInfo {
 	cpu_percent: number;
 	memory_bytes: number;
 	status: string;
+	network_rx_bytes_per_sec: number;
+	network_tx_bytes_per_sec: number;
 }
 
 /** SQLite aggregate row returned by get-history command (Phase 2) */

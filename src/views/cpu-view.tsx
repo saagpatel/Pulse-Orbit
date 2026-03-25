@@ -102,6 +102,28 @@ export function CpuView({ current, history }: CpuViewProps) {
 				</p>
 			)}
 
+			{/* GPU */}
+			{current.gpu && (
+				<div className="bg-panel-card rounded-lg p-3 space-y-2">
+					<h4 className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">
+						GPU
+					</h4>
+					<MetricBar
+						label="Utilization"
+						value={current.gpu.utilization_percent}
+						max={100}
+						format={formatPercent}
+						color="bg-status-warning"
+					/>
+					<SparklineChart
+						data={history}
+						accessor={(s) => s.gpu?.utilization_percent ?? 0}
+						color="#f59e0b"
+						height={48}
+					/>
+				</div>
+			)}
+
 			{/* 24h History */}
 			<HistorySection metricType="cpu" />
 		</div>

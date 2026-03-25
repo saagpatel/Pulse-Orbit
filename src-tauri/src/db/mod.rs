@@ -34,6 +34,13 @@ CREATE TABLE IF NOT EXISTS alert_thresholds (
 );
 ";
 
+const MIGRATION_003: &str = "
+CREATE TABLE IF NOT EXISTS app_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+";
+
 /// Initialize the SQLite connection pool and run migrations.
 pub fn init(app: &AppHandle) -> DbPool {
     let app_data_dir = app
@@ -61,6 +68,8 @@ pub fn init(app: &AppHandle) -> DbPool {
             .expect("failed to run migration 001");
         conn.execute_batch(MIGRATION_002)
             .expect("failed to run migration 002");
+        conn.execute_batch(MIGRATION_003)
+            .expect("failed to run migration 003");
     }
 
     // Initial purge of stale rows

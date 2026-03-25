@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { KillModal } from "../components/kill-modal";
-import { formatBytes, formatPercent } from "../lib/format";
+import { formatBytes, formatBytesPerSec, formatPercent } from "../lib/format";
 import type { MetricSnapshot, ProcessInfo } from "../types";
 
 interface ProcessViewProps {
@@ -25,6 +25,7 @@ export function ProcessView({ current }: ProcessViewProps) {
 						<th className="text-right pb-2 font-bold w-14">PID</th>
 						<th className="text-right pb-2 font-bold w-14">CPU</th>
 						<th className="text-right pb-2 font-bold w-16">RAM</th>
+						<th className="text-right pb-2 font-bold w-14">Net</th>
 						<th className="w-8 pb-2" />
 					</tr>
 				</thead>
@@ -45,6 +46,15 @@ export function ProcessView({ current }: ProcessViewProps) {
 							</td>
 							<td className="py-1.5 text-right font-mono text-text-secondary">
 								{formatBytes(proc.memory_bytes)}
+							</td>
+							<td className="py-1.5 text-right font-mono text-text-secondary text-[10px]">
+								{proc.network_rx_bytes_per_sec + proc.network_tx_bytes_per_sec >
+								0
+									? formatBytesPerSec(
+											proc.network_rx_bytes_per_sec +
+												proc.network_tx_bytes_per_sec,
+										)
+									: "—"}
 							</td>
 							<td className="py-1.5 text-right">
 								<button

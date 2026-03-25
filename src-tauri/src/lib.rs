@@ -12,6 +12,10 @@ use tauri::{
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(ActivationPolicy::Accessory);
@@ -53,6 +57,8 @@ pub fn run() {
             commands::thresholds::get_thresholds,
             commands::thresholds::set_threshold,
             commands::thresholds::get_db_info,
+            commands::settings::get_setting,
+            commands::settings::set_setting,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

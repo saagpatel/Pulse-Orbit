@@ -6,13 +6,15 @@ use sysinfo::{Disks, Networks, ProcessesToUpdate, System};
 use tauri::{AppHandle, Emitter};
 
 use super::disk_io;
+use super::gpu;
 use super::m_series::{self, CoreTopology};
-use super::types::*;
+use super::proc_net;
 use super::threshold_checker::ThresholdChecker;
+use super::types::*;
 use crate::db::writer::AggregateBuffer;
 use crate::db::DbPool;
 
-const POLL_INTERVAL: Duration = Duration::from_secs(2);
+const DEFAULT_POLL_MS: u64 = 2000;
 
 pub fn start_polling(app: AppHandle, pool: DbPool) {
     tauri::async_runtime::spawn(async move {
@@ -50,11 +52,18 @@ pub fn start_polling(app: AppHandle, pool: DbPool) {
 
         let mut prev_time = Instant::now();
 
+        // Per-process network baselines
+        let mut prev_proc_net: HashMap<u32, (u64, u64)> = HashMap::new();
+
         // Aggregate buffer for SQLite history
         let mut buffer = AggregateBuffer::new();
 
         // Threshold checker for alerts
         let mut checker = ThresholdChecker::new(&pool);
+
+        // Dynamic polling interval (reloaded from DB periodically)
+        let mut poll_interval_ms = load_poll_interval(&pool);
+        let mut last_interval_check = Instant::now();
 
         // Skip the very first emission (no delta baseline)
         let mut warmup_done = false;
@@ -69,7 +78,7 @@ pub fn start_polling(app: AppHandle, pool: DbPool) {
             if !warmup_done {
                 warmup_done = true;
                 prev_time = Instant::now();
-                std::thread::sleep(POLL_INTERVAL);
+                std::thread::sleep(Duration::from_millis(poll_interval_ms));
                 continue;
             }
 
@@ -79,6 +88,9 @@ pub fn start_polling(app: AppHandle, pool: DbPool) {
             // Read current disk I/O from IOKit
             let current_disk_io = disk_io::read_disk_io_stats();
 
+            // Read GPU utilization
+            let gpu_reading = gpu::read_gpu_utilization();
+
             let snapshot = build_snapshot(
                 &sys,
                 &networks,
@@ -87,6 +99,8 @@ pub fn start_polling(app: AppHandle, pool: DbPool) {
                 &mut prev_net,
                 &mut prev_disk,
                 &current_disk_io,
+                &mut prev_proc_net,
+                gpu_reading.as_ref(),
                 elapsed_secs,
             );
 
@@ -105,12 +119,35 @@ pub fn start_polling(app: AppHandle, pool: DbPool) {
                 buffer.last_flush_minute = now_min;
             }
 
+            // Reload polling interval every 60s
+            if last_interval_check.elapsed().as_secs() >= 60 {
+                poll_interval_ms = load_poll_interval(&pool);
+                last_interval_check = Instant::now();
+            }
+
             // Update previous disk I/O for next delta
             prev_disk = current_disk_io;
             prev_time = now;
-            std::thread::sleep(POLL_INTERVAL);
+            std::thread::sleep(Duration::from_millis(poll_interval_ms));
         }
     });
+}
+
+fn load_poll_interval(pool: &DbPool) -> u64 {
+    if let Ok(conn) = pool.get() {
+        if let Ok(val) = conn.query_row(
+            "SELECT value FROM app_settings WHERE key = 'polling_interval_ms'",
+            [],
+            |row| row.get::<_, String>(0),
+        ) {
+            if let Ok(ms) = val.parse::<u64>() {
+                if (1000..=10000).contains(&ms) {
+                    return ms;
+                }
+            }
+        }
+    }
+    DEFAULT_POLL_MS
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -122,6 +159,8 @@ fn build_snapshot(
     prev_net: &mut HashMap<String, (u64, u64)>,
     prev_disk: &mut HashMap<String, (u64, u64)>,
     current_disk_io: &HashMap<String, (u64, u64)>,
+    prev_proc_net: &mut HashMap<u32, (u64, u64)>,
+    gpu_reading: Option<&gpu::GpuReading>,
     elapsed_secs: f64,
 ) -> MetricSnapshot {
     let timestamp = SystemTime::now()
@@ -133,7 +172,10 @@ fn build_snapshot(
     let memory = build_memory_metrics(sys);
     let disk = build_disk_metrics(disks, prev_disk, current_disk_io, elapsed_secs);
     let network = build_network_metrics(networks, prev_net, elapsed_secs);
-    let processes = build_process_list(sys);
+    let processes = build_process_list(sys, prev_proc_net, elapsed_secs);
+    let gpu = gpu_reading.map(|r| GpuMetrics {
+        utilization_percent: r.utilization_percent,
+    });
 
     MetricSnapshot {
         timestamp,
@@ -142,6 +184,7 @@ fn build_snapshot(
         disk,
         network,
         processes,
+        gpu,
     }
 }
 
@@ -308,16 +351,44 @@ fn build_network_metrics(
     NetworkMetrics { interfaces }
 }
 
-fn build_process_list(sys: &System) -> Vec<ProcessInfo> {
+fn build_process_list(
+    sys: &System,
+    prev_proc_net: &mut HashMap<u32, (u64, u64)>,
+    elapsed_secs: f64,
+) -> Vec<ProcessInfo> {
     let mut procs: Vec<ProcessInfo> = sys
         .processes()
         .iter()
-        .map(|(pid, proc_)| ProcessInfo {
-            pid: pid.as_u32(),
-            name: proc_.name().to_string_lossy().into_owned(),
-            cpu_percent: proc_.cpu_usage(),
-            memory_bytes: proc_.memory(),
-            status: format!("{:?}", proc_.status()),
+        .map(|(pid, proc_)| {
+            let pid_u32 = pid.as_u32();
+
+            // Per-process network delta
+            let (rx_per_sec, tx_per_sec) =
+                if let Some(usage) = proc_net::read_process_net_usage(pid_u32) {
+                    let (prev_rx, prev_tx) = prev_proc_net
+                        .get(&pid_u32)
+                        .copied()
+                        .unwrap_or((usage.rx_bytes, usage.tx_bytes));
+                    let rx_delta = usage.rx_bytes.saturating_sub(prev_rx);
+                    let tx_delta = usage.tx_bytes.saturating_sub(prev_tx);
+                    prev_proc_net.insert(pid_u32, (usage.rx_bytes, usage.tx_bytes));
+                    (
+                        (rx_delta as f64 / elapsed_secs) as u64,
+                        (tx_delta as f64 / elapsed_secs) as u64,
+                    )
+                } else {
+                    (0, 0)
+                };
+
+            ProcessInfo {
+                pid: pid_u32,
+                name: proc_.name().to_string_lossy().into_owned(),
+                cpu_percent: proc_.cpu_usage(),
+                memory_bytes: proc_.memory(),
+                status: format!("{:?}", proc_.status()),
+                network_rx_bytes_per_sec: rx_per_sec,
+                network_tx_bytes_per_sec: tx_per_sec,
+            }
         })
         .collect();
 
@@ -327,5 +398,10 @@ fn build_process_list(sys: &System) -> Vec<ProcessInfo> {
             .unwrap_or(std::cmp::Ordering::Equal)
     });
     procs.truncate(10);
+
+    // Clean up stale PIDs from prev_proc_net
+    let active_pids: std::collections::HashSet<u32> = procs.iter().map(|p| p.pid).collect();
+    prev_proc_net.retain(|pid, _| active_pids.contains(pid));
+
     procs
 }
