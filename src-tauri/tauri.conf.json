@@ -1,6 +1,6 @@
 {
 	"productName": "Pulse Orbit",
-	"version": "0.1.0",
+	"version": "1.0.0",
 	"identifier": "com.pulse-orbit.app",
 	"build": {
 		"beforeDevCommand": "npm run dev",
@@ -24,7 +24,8 @@
 			}
 		],
 		"security": {
-			"csp": null
+			"csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; style-src 'self' 'unsafe-inline'; img-src 'self' data:",
+			"devCsp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; script-src 'self' 'unsafe-eval'"
 		}
 	},
 	"bundle": {
