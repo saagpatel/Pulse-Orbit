@@ -41,3 +41,50 @@ See IMPLEMENTATION-ROADMAP.md for full phase details.
 - Do not add features not in the current phase of IMPLEMENTATION-ROADMAP.md
 - Do not use `any` types in TypeScript — define all Tauri event payloads as interfaces
 - Do not skip the kill confirmation modal — always two-step for process termination
+
+<!-- portfolio-context:start -->
+# Portfolio Context
+
+## What This Project Is
+
+A native macOS menu bar system monitor built with Tauri 2 + Rust + React. Clicking the menu bar icon reveals a dropdown panel showing real-time CPU, memory, disk, network, and process stats. Rust polls system metrics every 2 seconds via the `sysinfo` crate and pushes data to React via Tauri events. SQLite stores 24-hour metric history for trend charts.
+
+## Current State
+
+**Phase 0: Foundation & Rust Metric Engine**
+See IMPLEMENTATION-ROADMAP.md for full phase details.
+
+## Stack
+
+- **Rust**: 1.75+ (Tauri backend, sysinfo polling, SQLite writes)
+- **Tauri**: 2.x (menu bar window, Tauri events, IPC commands)
+- **React**: 18+ (hooks-based frontend, no class components)
+- **TypeScript**: 5.x (strict mode)
+- **Recharts**: 2.x (real-time and historical charts)
+- **SQLite**: via `rusqlite` 0.31 (metric history, alert thresholds)
+- **Tailwind CSS**: 3.x (utility-only, dark theme)
+
+## How To Run
+
+```bash
+# Development
+pnpm tauri dev
+
+# Build release app
+pnpm tauri build
+```
+
+## Known Risks
+
+- Do not use `powermetrics` — it requires `sudo` and is not acceptable for a menu bar UX
+- Do not store raw 2-second snapshots in SQLite — use 5-minute aggregates for history
+- Do not use Tauri `invoke` (commands) for the polling loop — use `emit` events from a Rust background thread
+- Do not add features not in the current phase of IMPLEMENTATION-ROADMAP.md
+- Do not use `any` types in TypeScript — define all Tauri event payloads as interfaces
+- Do not skip the kill confirmation modal — always two-step for process termination
+
+## Next Recommended Move
+
+Use this context plus the README and supporting docs to resume the next active task, then promote the repo beyond minimum-viable by capturing a dedicated handoff, roadmap, or discovery artifact.
+
+<!-- portfolio-context:end -->
