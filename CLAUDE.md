@@ -9,7 +9,7 @@ A native macOS menu bar system monitor built with Tauri 2 + Rust + React. Clicki
 - **React**: 18+ (hooks-based frontend, no class components)
 - **TypeScript**: 5.x (strict mode)
 - **Recharts**: 2.x (real-time and historical charts)
-- **SQLite**: via `rusqlite` 0.31 (metric history, alert thresholds)
+- **SQLite**: via `rusqlite` 0.32 (metric history, alert thresholds)
 - **Tailwind CSS**: 3.x (utility-only, dark theme)
 
 ## Development Conventions
@@ -21,8 +21,8 @@ A native macOS menu bar system monitor built with Tauri 2 + Rust + React. Clicki
 - All React views in `src/views/` — one file per panel
 
 ## Current Phase
-**Phase 0: Foundation & Rust Metric Engine**
-See IMPLEMENTATION-ROADMAP.md for full phase details.
+**All phases shipped (v1.0.0)**
+All four roadmap phases are complete, plus several features originally listed as v2 scope: GPU monitoring via IOKit, per-process network I/O via `proc_pid_rusage`, auto-launch at login, and configurable polling interval. See IMPLEMENTATION-ROADMAP.md for phase details.
 
 ## Key Decisions
 | Decision | Choice | Why |
@@ -51,8 +51,8 @@ A native macOS menu bar system monitor built with Tauri 2 + Rust + React. Clicki
 
 ## Current State
 
-**Phase 0: Foundation & Rust Metric Engine**
-See IMPLEMENTATION-ROADMAP.md for full phase details.
+**All phases shipped (v1.0.0)**
+All four roadmap phases are complete, plus several features originally listed as v2 scope: GPU monitoring via IOKit, per-process network I/O via `proc_pid_rusage`, auto-launch at login, and configurable polling interval. See IMPLEMENTATION-ROADMAP.md for phase details.
 
 ## Stack
 
@@ -61,7 +61,7 @@ See IMPLEMENTATION-ROADMAP.md for full phase details.
 - **React**: 18+ (hooks-based frontend, no class components)
 - **TypeScript**: 5.x (strict mode)
 - **Recharts**: 2.x (real-time and historical charts)
-- **SQLite**: via `rusqlite` 0.31 (metric history, alert thresholds)
+- **SQLite**: via `rusqlite` 0.32 (metric history, alert thresholds)
 - **Tailwind CSS**: 3.x (utility-only, dark theme)
 
 ## How To Run

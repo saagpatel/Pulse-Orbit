@@ -15,6 +15,9 @@ A macOS menu bar system monitor built with Tauri 2 and Rust. Click the tray icon
 - **Process table** — top 10 processes by CPU with per-process memory and network I/O
 - **24-hour history** — metrics aggregated into 5-minute windows, retained locally in SQLite
 - **Alert thresholds** — configurable per-metric with cooldown periods and native macOS notifications
+- **GPU utilization** — Apple Silicon GPU usage via IOKit, shown in the CPU tab when available
+- **Auto-launch** — optional launch-at-login toggle in Settings
+- **Configurable polling interval** — adjustable from 1–10 seconds via Settings
 
 ## Quick Start
 
