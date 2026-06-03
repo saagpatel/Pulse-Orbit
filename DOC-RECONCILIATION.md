@@ -16,109 +16,111 @@ tray icon, `ActivationPolicy::Accessory`), `src/App.tsx`, and `src-tauri/tauri.c
 window, `visible: false`, no decorations). The one-line description is accurate.
 
 ### 2. Current state
-**Status:** `drifted` → fixed
-
-**Evidence showing the drift:**
-- `CLAUDE.md:24` and the portfolio-context block both read "Phase 0: Foundation & Rust Metric Engine"
-- The actual code spans all four roadmap phases:
-  - Phase 1: `src/views/cpu-view.tsx`, `src/views/memory-view.tsx`, `src/views/process-view.tsx`,
-    `src/components/kill-modal.tsx`, two-step kill via `nix::sys::signal::kill`
-    (`src-tauri/src/commands/processes.rs`)
-  - Phase 2: `src/views/disk-view.tsx`, `src/views/network-view.tsx`, `src-tauri/src/db/mod.rs`
-    (SQLite pool + migrations), `src-tauri/src/db/writer.rs` (5-min aggregate flush)
-  - Phase 3: `src/views/settings-view.tsx`, `src/components/threshold-editor.tsx`,
-    `src-tauri/src/metrics/threshold_checker.rs`, `src-tauri/src/notifications.rs`
-- Additionally, features the roadmap classified as v2-deferred are already shipped:
-  - GPU monitoring: `src-tauri/src/metrics/gpu.rs` (IOKit `IOAccelerator` query),
-    `src/views/cpu-view.tsx:106–125` (rendered when `current.gpu !== null`)
-  - Per-process network I/O: `src-tauri/src/metrics/proc_net.rs` (`proc_pid_rusage` syscall),
-    `src/views/process-view.tsx:51–57` (Net column)
-  - Auto-launch at login: `src-tauri/src/lib.rs:15–18` (`tauri_plugin_autostart` registered),
-    `src/views/settings-view.tsx:35–53`
-  - Configurable polling interval: `src-tauri/src/metrics/collector.rs:65` (`load_poll_interval`),
-    `src/views/settings-view.tsx:57–77`
-
-**Changes made:**
-- `CLAUDE.md:23-25` — "Current Phase" block:
-  before → `**Phase 0: Foundation & Rust Metric Engine** / See IMPLEMENTATION-ROADMAP.md...`
-  after  → `**All phases shipped (v1.0.0)** / All four roadmap phases are complete, plus...`
-- `CLAUDE.md:54-55` (portfolio-context "Current State") — same update as above.
+**Status:** `consistent`
+**Evidence:** `CLAUDE.md` correctly states "All phases shipped (v1.0.0)". Confirmed by reading code:
+- Phase 1: `src/views/cpu-view.tsx`, `src/views/memory-view.tsx`, `src/views/process-view.tsx`,
+  `src/components/kill-modal.tsx`, two-step kill via `nix::sys::signal::kill`
+  (`src-tauri/src/commands/processes.rs`)
+- Phase 2: `src/views/disk-view.tsx`, `src/views/network-view.tsx`, `src-tauri/src/db/mod.rs`
+  (SQLite pool + 3 embedded migrations), `src-tauri/src/db/writer.rs` (5-min aggregate flush)
+- Phase 3: `src/views/settings-view.tsx`, `src/components/threshold-editor.tsx`,
+  `src-tauri/src/metrics/threshold_checker.rs`, `src-tauri/src/notifications.rs`
+- Originally-v2-deferred features are shipped: GPU (`src-tauri/src/metrics/gpu.rs`), per-process
+  network I/O (`src-tauri/src/metrics/proc_net.rs`), auto-launch (`src-tauri/src/lib.rs:15`),
+  configurable polling (`src-tauri/src/metrics/collector.rs:65`)
+- Baseline tests are present: `src-tauri/src/metrics/types.rs` and
+  `src-tauri/src/metrics/threshold_checker.rs` both contain `#[cfg(test)]` modules.
 
 ### 3. Stack
-**Status:** `drifted` (version only) → fixed
-
-**Evidence:** `CLAUDE.md` Tech Stack listed `rusqlite 0.31`; `src-tauri/Cargo.toml:25` shows
-`rusqlite = { version = "0.32", features = ["bundled"] }`. All other crate names in CLAUDE.md are
-accurate. README Tech Stack table does not include version numbers so no drift there.
-
-**Changes made:**
-- `CLAUDE.md` (two occurrences — top Tech Stack and portfolio-context Stack duplicate):
-  before → `via \`rusqlite\` 0.31`
-  after  → `via \`rusqlite\` 0.32`
+**Status:** `consistent`
+**Evidence:**
+- `CLAUDE.md` lists `rusqlite 0.32` — matches `src-tauri/Cargo.toml:25`
+  (`rusqlite = { version = "0.32", features = ["bundled"] }`)
+- `README.md` Tech Stack table (no version numbers) — all named crates present in `Cargo.toml`
+- `sysinfo = "0.33"` (`Cargo.toml:19`), `r2d2_sqlite = "0.25"` (`Cargo.toml:27`), `nix = "0.29"`
+  (`Cargo.toml:21`) not referenced by version in any editable doc — no drift
 
 ### 4. How to run
 **Status:** `consistent`
-**Evidence:** `README.md` documents `pnpm tauri dev` and `pnpm tauri build`. `package.json:7`
-defines `"tauri": "tauri"` (delegates to `@tauri-apps/cli`). `tauri.conf.json:4-8` sets
-`beforeDevCommand: "npm run dev"` and `beforeBuildCommand: "npm run build"`, confirming the tauri
-CLI wraps the vite build correctly. Both commands work through the standard Tauri CLI workflow.
+**Evidence:** `README.md` and `CLAUDE.md` document `pnpm tauri dev` and `pnpm tauri build`.
+`package.json:11` defines `"tauri": "tauri"` (delegates to `@tauri-apps/cli`). Both scripts are
+valid entry points as defined.
 
 ### 5. Known risks
 **Status:** `consistent`
-**Evidence:** Every technical constraint in the CLAUDE.md "Do NOT" list is verifiable in the code:
-- No `powermetrics` anywhere in `src-tauri/src/` (confirmed by absence)
-- SQLite only stores 5-minute aggregate rows (`src-tauri/src/db/writer.rs`)
-- Polling loop uses `tauri::async_runtime::spawn` + `app.emit(...)`, never `invoke`
-  (`src-tauri/src/metrics/collector.rs:19,107`)
-- No `any` types present in `src/` TypeScript files
-- KillModal with two-step confirmation is implemented (`src/components/kill-modal.tsx`)
+**Evidence:** Every "Do NOT" constraint in `CLAUDE.md` is verified in code:
+- No `powermetrics` anywhere in `src-tauri/src/`
+- SQLite stores only 5-minute aggregate rows (`src-tauri/src/db/writer.rs`)
+- Polling loop uses `app.emit(...)`, not `invoke` (`src-tauri/src/metrics/collector.rs:107`)
+- No `any` types in `src/` TypeScript files (interfaces defined in `src/types/index.ts`)
+- `KillModal` two-step confirmation implemented (`src/components/kill-modal.tsx`)
 
 ### 6. Next move
-**Status:** `drifted` → fixed (covered under claim 2 above)
-**Evidence:** The "next move" implied by "Phase 0" being current was to implement the live panels.
-That work is complete. The update to claim 2 surfaces the real next step: v2 scope items not yet
-shipped (e.g., GPU stats not persisted to SQLite history, no dedicated GPU trend chart).
+**Status:** `consistent`
+**Evidence:** `CLAUDE.md` "Next Recommended Move" says to resume the next active task and promote
+the repo beyond minimum-viable. This is appropriate: v1.0.0 is tagged (`refs/tags/v1.0.0`),
+all planned features are shipped, and the project is in a Release Frozen posture per
+`docs/PORTFOLIO-DISPOSITION.md`. Unblock conditions (Apple Developer ID, notarization) are
+documented in the disposition.
 
----
-
-## README.md — features missing from docs
-**Status:** `drifted` → fixed
-
-Three features implemented in code were absent from the README features list:
-
-| Feature | Code evidence | README change |
-|---------|--------------|---------------|
-| GPU utilization | `src-tauri/src/metrics/gpu.rs`, `src/views/cpu-view.tsx:106` | Added bullet |
-| Auto-launch at login | `src-tauri/src/lib.rs:15`, `src/views/settings-view.tsx:35` | Added bullet |
-| Configurable polling | `src-tauri/src/metrics/collector.rs:65`, `src/views/settings-view.tsx:57` | Added bullet |
+**No edits were made to `README.md`, `CLAUDE.md`, or `docs/PORTFOLIO-DISPOSITION.md` — all claims
+were already consistent with the code at HEAD `eb25fc98b022fd41068973c30fc481e4b6fda2e7`.**
 
 ---
 
 ## Contradictions for manual review
 
-The following files contain drift but are **outside the editable set** (not README.md, CLAUDE.md,
-AGENTS.md, DOC-RECONCILIATION.md, or docs/). A human should apply these corrections.
+The following files contain drift but are **outside the editable set** (`README.md`, `CLAUDE.md`,
+`AGENTS.md`, `DOC-RECONCILIATION.md`, `docs/**`). A human should apply these corrections.
 
-### `IMPLEMENTATION-ROADMAP.md`
+### `settings-view.tsx`
 
 | Location | What is wrong | Suggested fix |
 |----------|--------------|---------------|
-| `IMPLEMENTATION-ROADMAP.md:268` | "Out of scope (v1): Auto-launch at login" | Remove — `tauri_plugin_autostart` is registered in `lib.rs` and toggled in `settings-view.tsx` |
+| `src/views/settings-view.tsx:177` | Hardcoded About section reads `v2.0.0 — macOS System Monitor` | Change to `v1.0.0` — `Cargo.toml:3` and `package.json:3` both declare `version = "1.0.0"`, and the tag `v1.0.0` exists in git |
+
+### `CHANGELOG.md`
+
+| Location | What is wrong | Suggested fix |
+|----------|--------------|---------------|
+| `CHANGELOG.md:7-9` | Only entry is `## [Unreleased] - Initial release`; no `## [1.0.0]` section | Add a `[1.0.0]` section summarising the shipped feature set; the tag `v1.0.0` (`b1511490`) exists in git |
+
+### `IMPLEMENTATION-ROADMAP.md`
+
+*(These findings carry over from the prior pass at `9c1cb25` — still unresolved.)*
+
+| Location | What is wrong | Suggested fix |
+|----------|--------------|---------------|
+| `IMPLEMENTATION-ROADMAP.md:268` | "Out of scope (v1): Auto-launch at login" | Remove — `tauri_plugin_autostart` is registered in `lib.rs:15` and toggled in `settings-view.tsx:35` |
 | `IMPLEMENTATION-ROADMAP.md:270` | "Deferred to v2: Per-process network breakdown via `libproc`" | Remove — implemented via `proc_pid_rusage` in `metrics/proc_net.rs` |
 | `IMPLEMENTATION-ROADMAP.md:271` | "Deferred to v2: GPU utilization via `IOKit` Metal stats" | Remove — implemented in `metrics/gpu.rs` via `IOAccelerator` IOService |
-| `IMPLEMENTATION-ROADMAP.md:272` | "Deferred to v2: Configurable polling interval" | Remove — `load_poll_interval` in `collector.rs` reads `app_settings` DB; selector in `settings-view.tsx` |
-| `IMPLEMENTATION-ROADMAP.md:236` | `sysinfo = "0.30"` in Rust Dependencies | Update to `"0.33"` (actual `Cargo.toml:19`) |
-| `IMPLEMENTATION-ROADMAP.md:237` | `rusqlite = { version = "0.31" }` | Update to `"0.32"` (actual `Cargo.toml:25`) |
-| `IMPLEMENTATION-ROADMAP.md:238` | `r2d2_sqlite = "0.24"` | Update to `"0.25"` (actual `Cargo.toml:27`) |
-| `IMPLEMENTATION-ROADMAP.md:239` | `nix = { version = "0.27" }` | Update to `"0.29"` (actual `Cargo.toml:21`) |
-| `IMPLEMENTATION-ROADMAP.md:64-67` | File structure shows separate `migrations/001_initial_schema.sql`, `migrations/002_alert_thresholds.sql`, and `db/migrations.rs` | Migrations are embedded as Rust string constants in `db/mod.rs`; the `migrations/` directory and `db/migrations.rs` file do not exist. There is also a third migration (`MIGRATION_003: app_settings`) not in the roadmap. |
-| `IMPLEMENTATION-ROADMAP.md:45` | File structure shows `src/hooks/useProcesses.ts` | File does not exist; process list is folded into `src/hooks/use-metrics.ts` |
-| `IMPLEMENTATION-ROADMAP.md:31-47` | File structure uses PascalCase for all TS/TSX files (e.g., `CpuView.tsx`, `useMetrics.ts`) | Actual files use kebab-case (e.g., `cpu-view.tsx`, `use-metrics.ts`), matching CLAUDE.md conventions |
+| `IMPLEMENTATION-ROADMAP.md:272` | "Deferred to v2: Configurable polling interval" | Remove — `load_poll_interval` in `collector.rs:65` reads `app_settings` DB; selector in `settings-view.tsx:57` |
+| `IMPLEMENTATION-ROADMAP.md:236` | `sysinfo = "0.30"` in Rust Dependencies | Update to `"0.33"` (`Cargo.toml:19`) |
+| `IMPLEMENTATION-ROADMAP.md:237` | `rusqlite = { version = "0.31" }` | Update to `"0.32"` (`Cargo.toml:25`) |
+| `IMPLEMENTATION-ROADMAP.md:238` | `r2d2_sqlite = "0.24"` | Update to `"0.25"` (`Cargo.toml:27`) |
+| `IMPLEMENTATION-ROADMAP.md:239` | `nix = { version = "0.27" }` | Update to `"0.29"` (`Cargo.toml:21`) |
+| `IMPLEMENTATION-ROADMAP.md:64-67` | File structure lists `migrations/001_initial_schema.sql`, `migrations/002_alert_thresholds.sql`, and `db/migrations.rs` | None of these exist — migrations are embedded as Rust string constants (`MIGRATION_001/002/003`) in `db/mod.rs`. A third migration (`app_settings` table) was added that the roadmap does not document. |
+| `IMPLEMENTATION-ROADMAP.md:45` | File structure lists `src/hooks/useProcesses.ts` | File does not exist; process list is handled inside `src/hooks/use-metrics.ts` |
+| `IMPLEMENTATION-ROADMAP.md:31-47` | File structure uses PascalCase for all TS/TSX filenames (e.g., `CpuView.tsx`, `useMetrics.ts`) | Actual files are kebab-case (e.g., `cpu-view.tsx`, `use-metrics.ts`), matching CLAUDE.md conventions |
+
+### `docs/PORTFOLIO-DISPOSITION.md`
+
+The disposition document was generated at commit `b151149` and two SHA references within it are
+now stale. However, this is a **point-in-time portfolio analysis snapshot** — the analysis
+(Release Frozen verdict, unblock conditions, cluster taxonomy) was conducted at `b151149`. All
+four subsequent commits (`b70f52c`, `9c1cb25`, `2c4c1c4`, `eb25fc9`) are documentation-only and
+do not change the functional state described in the disposition. Updating the SHA here without
+re-running the full portfolio analysis would be misleading, so it was left unchanged.
+
+| Location | What is stale |
+|----------|--------------|
+| `docs/PORTFOLIO-DISPOSITION.md:24` | `Tip: \`b151149\` chore: update Cargo.lock for version 1.0.0` → current HEAD is `eb25fc9` |
+| `docs/PORTFOLIO-DISPOSITION.md:138` | `\`b151149\` chore: update Cargo.lock for version 1.0.0` → same |
 
 ---
 
 ## Footer
 
-**Generated:** 2026-05-30 22:45:09 PDT
-**Branch:** docs/truth-up-2026-05-30
-**HEAD sha reconciled against:** 9c1cb25327d70c11841b45a7887ae7abf40f3cf7
+**Generated:** 2026-06-02 19:51:05 PDT
+**Branch:** docs/truth-up-2026-06-02
+**HEAD sha reconciled against:** eb25fc98b022fd41068973c30fc481e4b6fda2e7
