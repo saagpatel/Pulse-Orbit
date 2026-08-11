@@ -6,7 +6,7 @@ per project memory — actual canonical state is v1.0.0). .dmg
 distribution build deps + Cargo.lock + baseline tests for
 threshold checker and metric types + CSP hardened. **27th signing
 cluster member.** Path quirk: local dir
-`/Users/d/Projects/Pulse Orbit` has a space; origin repo
+`~/Projects/Pulse Orbit` has a space; origin repo
 `saagpatel/Pulse-Orbit` uses hyphen.
 
 > Disposition uses strict `origin/main` verification.
@@ -141,6 +141,6 @@ Estimated operator time: ~3 hours.
 | Version | **v1.0.0** (memory drift correction) |
 | Platform | macOS only (IOKit + Apple Silicon E/P core APIs) |
 | Distinguishing tech | Menu-bar tray app + 24-hour rolling metric history (5-min windows in SQLite) + Apple Silicon E/P core separation |
-| Path quirk | Local dir `/Users/d/Projects/Pulse Orbit` (space) vs origin `saagpatel/Pulse-Orbit` (hyphen) |
+| Path quirk | Local dir `~/Projects/Pulse Orbit` (space) vs origin `saagpatel/Pulse-Orbit` (hyphen) |
 | Migration state | No `legacy-origin` remote |
 | Distinguishing feature | **27th signing cluster member. Menu-bar tray sub-pattern.** Memory drift correction (v2.0 → v1.0.0). |
