@@ -9,3 +9,6 @@ src-tauri/gen/
 *.log
 .DS_Store
 CLAUDE.md.bak
+
+# Release artifacts (rebuildable; kept out of the tree)
+*.dmg
