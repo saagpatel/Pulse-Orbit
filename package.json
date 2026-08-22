@@ -16,7 +16,7 @@
 		"@tauri-apps/plugin-autostart": "2.5.1",
 		"@tauri-apps/plugin-notification": "2.3.3",
 		"autoprefixer": "10.5.2",
-		"postcss": "8.5.16",
+		"postcss": "8.5.26",
 		"react": "^19.2.7",
 		"react-dom": "^19.2.7",
 		"recharts": "2.15.4",
